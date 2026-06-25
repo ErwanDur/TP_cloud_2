@@ -1,0 +1,4 @@
+---
+nginx_port: 80
+cache_duration: "1y"
+cache_no_store: "-1y"

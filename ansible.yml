@@ -1,0 +1,137 @@
+name: Ansible Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ansible:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      ##########################################################################
+      # MANAGED NODE — Docker container acting as the remote SSH target
+      ##########################################################################
+
+      # -----------------------------------------------------------------------
+      # TODO: Generate an SSH key pair so the runner can connect to the
+      #       managed node. Look up the `ssh-keygen` command and figure out
+      #       the right flags to create a passwordless RSA-4096 key.
+      #       Then copy the public key to ansible/authorized_keys so it is
+      #       baked into the Docker image.
+      #
+      # - name: Generate SSH key pair
+      #   run: |
+      #     .....
+      # -----------------------------------------------------------------------
+
+      # -----------------------------------------------------------------------
+      # TODO: Build the managed-node Docker image from the ./ansible directory.
+      #
+      # - name: Build managed node image
+      #   run: .....
+      # -----------------------------------------------------------------------
+
+      # -----------------------------------------------------------------------
+      # TODO: Start the managed-node container, exposing port 2222 on the host
+      #       so Ansible can reach it via SSH.
+      #
+      # - name: Start managed node container
+      #   run: |
+      #     docker compose .....
+      # -----------------------------------------------------------------------
+
+      - name: Wait for SSH to be ready
+        run: |
+          TIMEOUT=30
+          ELAPSED=0
+          until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 \
+              -i ~/.ssh/id_rsa -p 2222 ynov@127.0.0.1 echo "SSH ready" 2>/dev/null; do
+            if [ $ELAPSED -ge $TIMEOUT ]; then
+              echo "Timed out waiting for SSH after ${TIMEOUT}s"
+              docker logs managed-node
+              exit 1
+            fi
+            echo "Waiting for SSH... (${ELAPSED}s)"
+            sleep 2
+            ELAPSED=$((ELAPSED + 2))
+          done
+
+      ##########################################################################
+      # ANSIBLE
+      ##########################################################################
+      - name: Install Ansible and tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible ansible-lint
+
+      ##########################################################################
+      # LINT & SECURITY — run before playbook execution
+      ##########################################################################
+
+      # -----------------------------------------------------------------------
+      # TODO: Add an Ansible Lint step to check the playbook for best-practice
+      #       violations before running it.
+      #       Hint — the step skeleton looks like:
+      #
+      # - name: Ansible Lint
+      #   id: lint
+      #   run: ansible-lint .....
+      #   working-directory: ./ansible
+      #   continue-on-error: true
+      # -----------------------------------------------------------------------
+
+      # -----------------------------------------------------------------------
+      # TODO: Add a Checkov security scan for Ansible, just like you did for
+      #       Terraform. Use the same bridgecrewio/checkov-action@v12 action
+      #       and point it at the ./ansible directory with framework: ansible.
+      #       Follow the same pattern you used in the Terraform pipeline.
+      # -----------------------------------------------------------------------
+
+      - name: Checkov Report
+        id: checkov-report
+        if: always()
+        working-directory: ./ansible
+        run: |
+          while IFS= read -r line; do
+            echo "$line" >> $GITHUB_STEP_SUMMARY
+          done < results_github_failed_only.md
+
+      # -----------------------------------------------------------------------
+      # TODO: Run the Ansible playbook against the managed node.
+      #       Hint — the step skeleton looks like:
+      #
+      # - name: Run Ansible Playbook
+      #   run: |
+      #     ansible-playbook deploy.yml \
+      #       -i hosts_docker \
+      #       .....
+      #   working-directory: ./ansible
+      # -----------------------------------------------------------------------
+
+      - name: Verify Nginx is running on managed node
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p 2222 ynov@127.0.0.1 \
+            "pgrep nginx && echo 'Nginx is running' || (echo 'Nginx is NOT running' && exit 1)"
+
+      # -----------------------------------------------------------------------
+      # TODO: Add a step that verifies Nginx is serving HTTP traffic from the
+      #       runner itself (not just that the process is running).
+      #       Hint — use `curl` to send a request to the container and check
+      #       the HTTP response code.
+      #
+      # - name: Verify Nginx serves HTTP traffic
+      #   run: curl .....
+      # -----------------------------------------------------------------------
+
+      ##########################################################################
+      # REPORT
+      ##########################################################################
+      # -----------------------------------------------------------------------
+      # TODO (bonus): Once all steps are implemented, add a Publish Report step
+      #               that writes the ansible-lint and Checkov results to
+      #               $GITHUB_STEP_SUMMARY so they appear on the workflow run.
+      # -----------------------------------------------------------------------

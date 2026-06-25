@@ -1,0 +1,62 @@
+---
+- name: YNOV TP 2 deployment
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+
+    - name: Create site directory
+      ansible.builtin.file:
+        path: /var/www/html/olympic-games-starter
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Copy angular files
+      ansible.builtin.copy:
+        src: app/olympic-games-starter/
+        dest: /var/www/html/olympic-games-starter/
+        owner: www-data
+        group: www-data
+        mode: "0644"
+
+    - name: Deploy nginx config from template
+      ansible.builtin.template:
+        src: app.conf.j2
+        dest: /etc/nginx/sites-available/app.conf
+      notify: Restart Nginx
+
+    - name: Start olympic game site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/app.conf
+        dest: /etc/nginx/sites-enabled/app.conf
+        state: link
+      notify: Restart Nginx
+
+    - name: Disable default NginX landing page
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart Nginx
+
+    - name: Validate Nginx config
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Start & Enable Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Restart Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
