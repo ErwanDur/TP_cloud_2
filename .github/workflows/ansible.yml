@@ -70,7 +70,7 @@ jobs:
         with:
           directory: ./ansible
           framework: ansible
-          output_format: github_failed_only
+          output_format: github_failed_only,cli
           output_file_path: ./ansible
           soft_fail: true
 
@@ -121,3 +121,4 @@ jobs:
           path: |
             ansible/lint_report.txt
             ansible/results_github_failed_only.md
+            ansible/results_cli.txt
