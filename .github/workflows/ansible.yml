@@ -62,9 +62,8 @@ jobs:
 
       - name: Ansible Lint
         id: lint
-        run: ansible-lint deploy.yml > lint_report.txt 2>&1
+        run: ansible-lint deploy.yml > lint_report.txt 2>&1 || true
         working-directory: ./ansible
-        continue-on-error: true
 
       - name: Checkov Ansible Scan
         uses: bridgecrewio/checkov-action@v12
@@ -113,3 +112,12 @@ jobs:
           else
             echo "_No lint report found_" >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ansible-reports
+          path: |
+            ansible/lint_report.txt
+            ansible/results_github_failed_only.md

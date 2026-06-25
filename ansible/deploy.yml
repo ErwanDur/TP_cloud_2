@@ -30,6 +30,7 @@
       ansible.builtin.template:
         src: app.conf.j2
         dest: /etc/nginx/sites-available/app.conf
+        mode: "0644"
       notify: Restart Nginx
 
     - name: Start olympic game site
